@@ -1,5 +1,5 @@
 *.png
-*.txt
+*log*.txt
 IDS
 captchas/**
 xmls/**
