@@ -1,0 +1,5 @@
+*.png
+*.txt
+IDS
+captchas/**
+xmls/**
