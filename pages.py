@@ -104,7 +104,7 @@ class CurriculumPage(Base):
     in order to get the long_id necessery for downloadeing the xml version of
     the curriculum.
     """
-    regex = re.compile('\d{16}')
+    title = 'Currículo do Sistema de Currículos Lattes'
 
     def __init__(self, short_id):
         """Objeck initializer.
@@ -116,16 +116,75 @@ class CurriculumPage(Base):
         @attr _long_id: Curriculum 16 digits long id given by CNPQ.
                         Or False if couldnt get the long_id.
         @attr files: Dict containing necessary data to be sent in final POST.
+        @attr loaded: If page was successfully loaded or not: True or False
+        @attr response: Represents if the page was loaded successfully,
+                        returning a response object in this case, or False
+                        otherwise
+        @attr source_code
         """
         super().__init__()
         self.short_id = short_id
-        self._long_id = None
         self.files = {'metodo': (None, 'captchaValido'),
                       'id': (None, self.short_id),
                       'idiomaExibicao': (None, ''),
                       'tipo': (None, ''),
                       'informado': (None, '')}
         self.urls['post'] = self.domain + '/visualizacv.do'
+        self.response = None
+        self.source_code = None
+        self.soup = None
+        self._long_id = None
+        self.loaded = self.load()
+        if self.loaded:
+            self.source_code = self.response.text
+            self.soup = bs4(self.source_code, 'lxml')
+
+    def load(self):
+        """Through requests.Session: makes a series of requests emulating a
+        browser session in order to get inside the Curriculum page given a
+        short_id
+
+        @return:  Returns True and save a response object in self.response if
+                  successfull or False if not
+        @rtype :  bool
+        """
+        tries, curriculum = 0, False
+        while not self.is_curriculum(curriculum) or tries < self.max_tries:
+            tries += 1
+            with requests.Session() as session:
+                self.logger.info(
+                    'Starting try n:{} for {}'.format(self.short_id, tries)
+                    )
+                code = self.read_captcha(session)
+                if code:
+                    if self.solve_captcha(session, code):
+                        curriculum = session.post(self.urls['post'],
+                                                  files=self.files)
+                        if self.is_curriculum(curriculum):
+                            self.response = curriculum
+                            return True
+                        else:
+                            self.logger.info('Trying again...')
+                            continue
+                    else:
+                        self.logger.info('Trying again...')
+                        continue
+                else:
+                    self.logger.info('Trying again...')
+                    continue
+        self.logger.info('Could not accquire long_id in {} tries'.format(
+                         self.max_tries))
+        return False
+
+    @property
+    def long_id(self):
+        """Property for returning a long_id"""
+        regex = re.compile('\d{16}')
+        long_id = self.soup.find(href=regex)['href'][-16:]
+        self.logger.info('long_id: {} | response: {}'.format(
+                         long_id, self.response))
+        self._long_id = long_id
+        return self._long_id
 
     def is_curriculum(self, response):
         """Verify if the response object is from a curriculum page.
@@ -141,58 +200,12 @@ class CurriculumPage(Base):
             # Necessary for while response is False and it's not yet a response
             return False
         else:
-            if self.find_long_id(response):
+            soup = bs4(response.text, 'lxml')
+            if self.title in soup.title.text:
                 self.logger.info('Yes, yes!')
                 return True
             else:
                 return False
-
-    @property
-    def long_id(self):
-        """Through requests.Session: makes a series of requests emulating a
-        browser session in order to get inside the Curriculum page given a
-        short_id
-
-        @return:  Return False in case of MAX_TRIES was reached, otherwise
-                  returns a string containing the long_id.
-        @rtype :  False or string
-        """
-        tries, curriculum = 0, False
-        while not self.is_curriculum(curriculum) or tries < self.max_tries:
-            tries += 1
-            with requests.Session() as session:
-                self.logger.info(
-                    'Starting try n:{} for {}'.format(self.short_id, tries)
-                    )
-                code = self.read_captcha(session)
-                if code:
-                    if self.solve_captcha(session, code):
-                        curriculum = session.post(self.urls['post'],
-                                                  files=self.files)
-                        if self.is_curriculum(curriculum):
-                            self._long_id = self.find_long_id(curriculum)
-                            return self._long_id
-                        else:
-                            self.logger.info('Trying again...')
-                            continue
-                    else:
-                        self.logger.info('Trying again...')
-                        continue
-                else:
-                    self.logger.info('Trying again...')
-                    continue
-        self.logger.info('Could not accquire long_id in {} tries'.format(
-                         self.max_tries))
-        return False
-
-    def find_long_id(self, response):
-        """Given a response retreives and returns a long_id."""
-        soup = bs4(response.text, 'lxml')
-        long_id = soup.find(href=self.regex)['href'][-16:]
-        self.logger.info('long_id: {} | response: {}'.format(
-                         long_id, response))
-        return long_id
-
 
 class CurriculumXml(Base):
 
