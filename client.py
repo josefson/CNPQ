@@ -4,6 +4,7 @@ so one can have some idea of what to do and how to do."""
 # -*- coding: utf-8 -*-
 from multiprocessing import Process, current_process
 from lattes.pages import CurriculumPage, CurriculumXml
+from lattes.search import SearchSession
 from lattes.config import BaseLogger
 import logging
 
@@ -54,6 +55,6 @@ def better_logic_example(short_ids):
 
 
 if __name__ == "__main__":
-    short_ids = ['K8185478E7', 'K4246690H2', 'K4138636E6']
-    single_cored_example(short_ids)
-    # multi_cored_example(short_ids)
+    # short_ids = ['K8185478E7', 'K4246690H2', 'K4138636E6'] single_cored_example(short_ids)
+    # # multi_cored_example(short_ids)
+    s = SearchSession()

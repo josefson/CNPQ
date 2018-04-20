@@ -35,7 +35,7 @@ class BasePage(BaseLogger):
             'get_captcha': self.domain + self.routes['get_captcha'],
             'solve_captcha': self.domain + self.routes['solve_captcha'],
             }
-        captcha = 'captcha_{}.png'.format(current_process().name) 
+        captcha = 'captcha_{}.png'.format(current_process().name)
         self.captcha = os.path.join(self.path, captcha)
         super().__init__()
 
@@ -116,6 +116,9 @@ class CurriculumPage(BasePage):
                       'tipo': (None, ''),
                       'informado': (None, '')}
         self.urls['post'] = self.domain + '/visualizacv.do'
+        self.routes['update'] = '/preview.do?metodo=apresentar&id{}'.format(
+                                self.short_id)
+        self.urls['update'] = self.domain + self.routes['update']
         self.response = None
         self.source_code = None
         self.soup = None
@@ -172,6 +175,24 @@ class CurriculumPage(BasePage):
         self._long_id = long_id
         return self._long_id
 
+    @property
+    def update(self):
+        response = False
+        tries = 0
+        while not response or tries < self.max_tries:
+            tries += 1
+            try:
+                response = requests.get()
+            except:
+                pass
+            else:
+                soup = bs4(response.text, 'html.parser')
+                date_text = soup.span.text
+                regex = re.compile('(\d{2}\){2}\d{4}')
+                date_text = regex.search(date_text).group()
+                self._update =
+                return self._update
+
     def is_curriculum(self, response):
         """Verify if the response object is from a curriculum page.
 
@@ -189,9 +210,6 @@ class CurriculumPage(BasePage):
         else:
             soup = bs4(response.text, 'lxml')
             if self.title in soup.title.text:
-                self.response = response
-                self.source_code = response.text
-                self.soup = bs4(self.source_code, 'html.parser')
                 self.logger.info('Yes, yes!')
                 return True
             else:

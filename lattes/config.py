@@ -11,13 +11,13 @@ class BaseLogger:
     CONFIG_FILE = os.path.join(file_path, file_name)
 
     def __init__(self):
-        logger_name = self.__class__.__name__
-        self.logger = self.get_logger(logger_name)
+        self.logger_name = self.__class__.__name__
+        self.logger = self.set_logger()
 
-    def get_logger(self, name):
+    def set_logger(self):
         """Create and returns a logger object configured based on an external
         file: CONFIG_FILE.
         """
         fileConfig(self.CONFIG_FILE)
-        logger = logging.getLogger(name)
+        logger = logging.getLogger(self.logger_name)
         return logger
