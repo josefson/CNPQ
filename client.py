@@ -2,14 +2,13 @@
 so one can have some idea of what to do and how to do."""
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from pages import CurriculumPage, CurriculumXml
 from multiprocessing import Process, current_process
-from logging.config import fileConfig
+from lattes.pages import CurriculumPage, CurriculumXml
+from lattes.config import BaseLogger
 import logging
 
 
-CONFIG_LOGGER = 'logging_config.ini'
-fileConfig(CONFIG_LOGGER)
+logger = BaseLogger()
 zip_path = '/Users/josefson/Workspace/Python/CNPQ2/xmls'
 
 
@@ -55,8 +54,6 @@ def better_logic_example(short_ids):
 
 
 if __name__ == "__main__":
-    logger = logging.getLogger('root')
     short_ids = ['K8185478E7', 'K4246690H2', 'K4138636E6']
-    logger.info('Starting client code...')
     single_cored_example(short_ids)
     # multi_cored_example(short_ids)
