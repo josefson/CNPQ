@@ -3,15 +3,19 @@ from bs4 import BeautifulSoup as bs4
 from lattes.captcha import Captcha
 from lattes.config import BaseLogger
 from pathlib import Path
-import requests
+from requests import Session, Request
 import re
 import os
 
 
-class BasePage(BaseLogger):
+class Base(BaseLogger):
 
     max_tries = 50  # constant in order to give up on this curriculum.
     path = Path(__file__).parent.absolute()
+    domain_url = 'http://buscatextual.cnpq.br/buscatextual'
+    get_capthca_url = domain_url + '/servlet/captcha?metodo=getImagemCaptcha'
+    solve_captcha_url = domain_url + '/servlet/captcha?informado={}'\
+                                     '&metodo=validaCaptcha'
 
     def __init__(self):
         """Base initializer for subclasses
@@ -26,18 +30,11 @@ class BasePage(BaseLogger):
                            This should be unique enough that multiprocesses
                            don't overlap files from different istnances.
         """
-        self.domain = 'http://buscatextual.cnpq.br/buscatextual'
-        self.routes = {
-            'get_captcha': '/servlet/captcha?metodo=getImagemCaptcha',
-            'solve_captcha': '/servlet/captcha?informado={}&metodo=validaCaptcha',
-            }
-        self.urls = {
-            'get_captcha': self.domain + self.routes['get_captcha'],
-            'solve_captcha': self.domain + self.routes['solve_captcha'],
-            }
-        captcha = 'captcha_{}.png'.format(current_process().name)
-        self.captcha = os.path.join(self.path, captcha)
         super().__init__()
+        captcha = 'captcha_{}.png'.format(current_process().name)
+        self.captcha_file = os.path.join(self.path, captcha)
+        self.requests = {}
+        self.requests['get_captcha'] = Request('GET', self.get_capthca_url)
 
     def read_captcha(self, session):
         """Given a session, gets a captcha and reads it into text.
@@ -49,11 +46,17 @@ class BasePage(BaseLogger):
         @return: True or False, if the captcha was read successifuly or not.
         @rtype : bool
         """
-        response = session.get(self.urls['get_captcha'])
+        try:
+            prepped = session.prepare_request(self.requests['get_captcha'])
+            response = session.send(prepped)
+        except Exception as e:
+            self.logger.info('Error getting: {}.\n Error: {}'.format(
+                             self.get_capthca_url, e))
+            return False
         if response.status_code == 200:
-            with open(self.captcha, 'wb') as captcha:
+            with open(self.captcha_file, 'wb') as captcha:
                 captcha.write(response.content)
-            code = Captcha(self.captcha).get_text()
+            code = Captcha(self.captcha_file).get_text()
             if len(code) == 4:
                 self.logger.info('Read captcha: {}'.format(code))
                 return code
@@ -75,7 +78,15 @@ class BasePage(BaseLogger):
                   a authenticated session or not.
         @rtype :  bool
         """
-        response = session.get(self.urls['solve_captcha'].format(code))
+        try:
+            url = self.solve_captcha_url.format(code)
+            self.requests['solve_captcha'] = Request('GET', url)
+            prepped = session.prepare_request(self.requests['solve_captcha'])
+            response = session.send(prepped)
+        except Exception as e:
+            self.logger.info('Error getting: {}.\n Error: {}'.format(
+                             self.urls['solve_captcha'], e))
+            return False
         if 'sucesso' in response.text:
             self.logger.info('Capthca authenticated')
             return True
@@ -84,49 +95,47 @@ class BasePage(BaseLogger):
             return False
 
 
-class CurriculumPage(BasePage):
+class Curriculum(Base):
     """Represents a curriculum vizualization page in which given a short_id
     for its initializer then long_id() makes it possible to enter the webpage
     in order to get the long_id necessery for downloadeing the xml version of
     the curriculum.
     """
+
     title = 'Currículo do Sistema de Currículos Lattes'
+    post_url = Base.domain_url + '/visualizacv.do'
 
     def __init__(self, short_id):
-        """Objeck initializer.
+        """Instance initializer.
 
         @param short_id: 10 character string that represents a curriculum id
                          for this webpage
         @type  short_id: str
 
-        @attr _long_id: Curriculum 16 digits long id given by CNPQ.
-                        Or False if couldnt get the long_id.
-        @attr files: Dict containing necessary data to be sent in final POST.
-        @attr loaded: If page was successfully loaded or not: True or False
-        @attr response: Represents if the page was loaded successfully,
-                        returning a response object in this case, or False
-                        otherwise
-        @attr source_code
+        @attr _long_id : Curriculum 16 digits long id given by CNPQ.
+                         Or False if couldnt get the long_id.
+        @attr is_loaded: If page was successfully is_loaded or not: True or
+                         False
+        @attr response : Final http response object.
+        @attr source   : Page source code.
+        @attr soup     : Bs4 soup from page source code
         """
+
         super().__init__()
         self.short_id = short_id
-        self.files = {'metodo': (None, 'captchaValido'),
-                      'id': (None, self.short_id),
-                      'idiomaExibicao': (None, ''),
-                      'tipo': (None, ''),
-                      'informado': (None, '')}
-        self.urls['post'] = self.domain + '/visualizacv.do'
-        self.routes['update'] = '/preview.do?metodo=apresentar&id{}'.format(
-                                self.short_id)
-        self.urls['update'] = self.domain + self.routes['update']
-        self.response = None
-        self.source_code = None
-        self.soup = None
         self._long_id = None
-        self.loaded = self.load()
-        # if self.loaded:
-        #     self.source_code = self.response.text
-        #     self.soup = bs4(self.source_code, 'html.parser')
+        self.response = None
+        self.source = None
+        self.soup = None
+        payload = {
+            'metodo': (None, 'captchaValido'),
+            'id': (None, self.short_id),
+            'idiomaExibicao': (None, ''),
+            'tipo': (None, ''),
+            'informado': (None, '')
+            }
+        self.requests['post'] = Request('POST', self.post_url, data=payload)
+        self.is_loaded = self.load()
 
     def load(self):
         """Through requests.Session: makes a series of requests emulating a
@@ -140,15 +149,19 @@ class CurriculumPage(BasePage):
         tries, curriculum = 0, False
         while not self.is_curriculum(curriculum) or tries < self.max_tries:
             tries += 1
-            with requests.Session() as session:
-                self.logger.info(
-                    'Starting try n:{} for {}'.format(tries, self.short_id)
-                    )
+            with Session() as session:
+                self.logger.info('Starting try n:{} for {}'.format(
+                                 tries, self.short_id))
                 code = self.read_captcha(session)
                 if code:
                     if self.solve_captcha(session, code):
-                        curriculum = session.post(self.urls['post'],
-                                                  files=self.files)
+                        try:
+                            request = self.requests['post']
+                            prepped = session.prepare_request(request)
+                            curriculum = session.send(prepped)
+                        except Exception as e:
+                            self.logger.info(' POST Error: {}'.format(e))
+                            continue
                         if self.is_curriculum(curriculum):
                             self.response = curriculum
                             return True
@@ -165,6 +178,33 @@ class CurriculumPage(BasePage):
                          self.max_tries))
         return False
 
+    def is_curriculum(self, response):
+        """Verify if the response object is from a curriculum page.
+
+        @param response: should be either a boolead, when called
+        @type  :  boolean or response from requests
+
+        @return:  True or False depending if response match curriculum page
+        @rtype :  bool
+        """
+
+        self.logger.info('Is response a curriculum page?')
+        if type(response) is bool:
+            # Necessary for while response is False and it's not yet a response
+            self.logger.info('Bool, not response')
+            return False
+        else:
+            soup = bs4(response.text, 'lxml')
+            if self.title in soup.title.text:
+                self.response = response
+                self.source = response.text
+                self.soup = soup
+                self.logger.info('Yes, yes!')
+                return True
+            else:
+                self.logger.info('No, it is not!')
+                return False
+
     @property
     def long_id(self):
         """Property for returning a long_id"""
@@ -176,48 +216,14 @@ class CurriculumPage(BasePage):
         return self._long_id
 
     @property
-    def update(self):
-        response = False
-        tries = 0
-        while not response or tries < self.max_tries:
-            tries += 1
-            try:
-                response = requests.get()
-            except:
-                pass
-            else:
-                soup = bs4(response.text, 'html.parser')
-                date_text = soup.span.text
-                regex = re.compile('(\d{2}\){2}\d{4}')
-                date_text = regex.search(date_text).group()
-                self._update =
-                return self._update
-
-    def is_curriculum(self, response):
-        """Verify if the response object is from a curriculum page.
-
-        @param response: should be either a boolead, when called
-        @type  :  boolean or response from requests
-
-        @return:  True or False depending if response match curriculum page
-        @rtype :  bool
-        """
-        self.logger.info('Is response a curriculum page?')
-        if type(response) is bool:
-            # Necessary for while response is False and it's not yet a response
-            self.logger.info('Bool, not response')
-            return False
-        else:
-            soup = bs4(response.text, 'lxml')
-            if self.title in soup.title.text:
-                self.logger.info('Yes, yes!')
-                return True
-            else:
-                self.logger.info('No, it is not!')
-                return False
+    def date(self):
+        last_updated = Preview.date(self.short_id)
+        return last_updated
 
 
-class CurriculumXml(BasePage):
+class Xml(Base):
+
+    url = Base.domain_url + '/download.do'
 
     def __init__(self, long_id, output_dir):
         """ Instance initializer.
@@ -234,15 +240,15 @@ class CurriculumXml(BasePage):
         """
         super().__init__()
         self.long_id = long_id
-        self.urls['post'] = self.domain + '/download.do'
-        self.files = {
+        self.file_name = None
+        self.file_path = None
+        self.check_path(output_dir)
+        payload = {
             'metodo': (None, 'captchaValido'),
             'idcnpq': (None, self.long_id),
             'informado': (None, ''),
             }
-        self.file_name = None
-        self.file_path = None
-        self.check_path(output_dir)
+        self.requests['post'] = Request('POST', self.url, data=payload)
         self.logger.info('Initializing XmlPage: {}'.format(self.long_id))
 
     def check_path(self, path):
@@ -274,14 +280,15 @@ class CurriculumXml(BasePage):
         tries = 0
         while not self.file_path.exists() and tries < self.max_tries:
             tries += 1
-            with requests.Session() as session:
+            with Session() as session:
                 self.logger.info('Starting Session(): {} try'.format(tries))
                 code = self.read_captcha(session)
                 if code:
                     if self.solve_captcha(session, code):
                         self.logger.info('Downloading xml...')
-                        response = session.post(self.urls['post'],
-                                                files=self.files)
+                        request = self.requests['post']
+                        prepped = session.prepare_request(request)
+                        response = session.send(prepped)
                         if self.save_xml(response):
                             return True
                         else:
@@ -323,3 +330,43 @@ class CurriculumXml(BasePage):
                 return False
         else:
             return False
+
+
+class Preview(Base):
+
+    url = ('http://buscatextual.cnpq.br/buscatextual'
+           '/preview.do?metodo=apresentar&id=')
+    logger = Base().set_logger()
+
+    @classmethod
+    def date(cls, short_id):
+        """Given a short id, open the Preview page and retrieves the date when
+        the curriculum was last updated.
+        Returns String with the last update or Flase if string date could not
+        be retrieved.
+        """
+        url = cls.url + short_id
+        request = Request('GET', url).prepare()
+        response = False
+        tries = 0
+        cls.logger.info('Getting upDATE for {}'.format(short_id))
+        while not response or tries < cls.max_tries:
+            tries += 1
+            cls.logger.info('Try: {}'.format(tries))
+            try:
+                with Session() as session:
+                    response = session.send(request)
+            except Exception as e:
+                cls.logger.info('Error: {}'.format(e))
+                continue
+            if response.ok:
+                pattern = '(\d{2}/){2}\d{4}'
+                regex = re.compile(pattern)
+                soup = bs4(response.text, 'html.parser')
+                date_text = soup.span.text
+                date_text = regex.search(date_text).group()
+                cls.logger.info('Response.ok: date: {}'.format(date_text))
+                return date_text
+            else:
+                continue
+        return False
