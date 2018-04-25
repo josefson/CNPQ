@@ -21,3 +21,10 @@ class BaseLogger:
         fileConfig(self.CONFIG_FILE)
         logger = logging.getLogger(self.logger_name)
         return logger
+
+    @classmethod
+    def from_name(cls, name):
+        """Alternative log constructor in order to get a logger not by inheritance."""
+        fileConfig(cls.CONFIG_FILE)
+        logger = logging.getLogger(name)
+        return logger
