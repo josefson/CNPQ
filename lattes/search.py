@@ -1,7 +1,10 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 from lattes.search_data import search_data, params_payload
 from bs4 import BeautifulSoup as bs4
 from lattes.config import BaseLogger
 import requests
+import re
 
 
 class Base(BaseLogger):
@@ -11,32 +14,34 @@ class Base(BaseLogger):
     def __init__(self):
         super().__init__()
 
+    def write(self, name, response):
+        with open(name, 'w') as out:
+            out.write(response.text)
 
-class SearchSession(Base):
+
+class Search(Base):
     url = 'http://buscatextual.cnpq.br/buscatextual/busca.do?'
-    search_data = search_data
 
-    def __init__(self, query='.'):
+    def __init__(self):
         super().__init__()
-        self.search_data['textoBusca'] = query
+        self.query = '.'
+        self.search_data = search_data
+        self.search_data['textoBusca'] = self.query
         self.session = requests.Session()
-        self.query_resposne = None
+        self.ok = False
+        self.logger.info('Searching for "." in {}'.format(self.url))
         try:
-            self.logger.info('Searching for "." ...')
             self.query_resposne = self.session.post(self.url,
                                                     data=self.search_data)
-        except requests.exceptions.Timeout as terror:
-            msg = 'Connection with {} timed out: {}'.format(self.url,
-                                                            terror)
-            self.logger.info(msg)
-            raise terror(msg)
-        except requests.exceptions.ConnectionError as cerror:
-            msg = 'Connection error at {}'.format(self.url)
-            self.logger(msg)
-            raise cerror(msg)
-        else:
             self.logger.info(
                 'Search finished with {} results'.format(self.total))
+        except Exception as e:
+            self.logger.info('Could not query {}'.format(self.url))
+            self.logger.info('Exception: {}'.format(e))
+            raise e
+        else:
+            if self.query_resposne:
+                self.ok = True
 
     @property
     def total(self):
@@ -45,15 +50,42 @@ class SearchSession(Base):
         return int(total)
 
 
-class SearchScraper(Base):
+class Scraper(Base):
 
-    def __inti__(self, search_session, out_file='shortids', chunk_size=1000):
-        self.session = search_session.session
-        self.total = search_session.total
-        self.chunk = chunk_size
-        self.params = params_payload
+    @classmethod
+    def from_registers(cls, search, reg_from, reg_to):
+        session = search.session
+        payload = params_payload
+        payload['registros'] = '{};{}'.format(reg_from, reg_to)
+        response = cls.load_page(session, payload, reg_from, reg_to)
+        if response:
+            soup = bs4(response.text, 'html.parser')
+            if 'Busca Textual' in soup.title.text:
+                return cls.extract_ids(soup)
+            else:
+                return False
+        else:
+            return False
 
-    def harvest(self):
-        for n in range(1, self.total, self.chunk):
-            self.params['registros'] = '{};{}'.format(n, self.chunk)
-            self.sesion.get(self.url, params=self.params)
+    @classmethod
+    def load_page(cls, session, payload, reg_from, reg_to):
+        response, tries, max_tries = False, 0, 50
+        while not response and tries < max_tries:
+            tries += 1
+            try:
+                response = session.get(cls.url, params=payload)
+            except:
+                continue
+            if response.ok:
+                return response
+            else:
+                return False
+
+    @classmethod
+    def extract_ids(cls, soup):
+        pattern = '[A-Z0-9]{10}'
+        regex = re.compile(pattern)
+        anchors = soup.find_all('a', href=regex)
+        hrefs = (anchor['href'] for anchor in anchors)
+        short_ids = [regex.search(href).group() for href in hrefs]
+        return short_ids
