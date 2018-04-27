@@ -1,11 +1,13 @@
 from multiprocessing import current_process
-from bs4 import BeautifulSoup as bs4
-from lattes.captcha import Captcha
-from lattes.config import BaseLogger
-from pathlib import Path
 from requests import Session, Request
+from bs4 import BeautifulSoup as bs4
+from lattes.config import BaseLogger
+from lattes.captcha import Captcha
+from pathlib import Path
 import re
 import os
+
+logger_file = 'downloader_log.txt'
 
 
 class Base(BaseLogger):
@@ -30,7 +32,7 @@ class Base(BaseLogger):
                            This should be unique enough that multiprocesses
                            don't overlap files from different istnances.
         """
-        super().__init__()
+        super().__init__(rotating_file=logger_file)
         captcha = 'captcha_{}.png'.format(current_process().name)
         self.captcha_file = os.path.join(self.path, captcha)
         self.requests = {}
@@ -336,7 +338,7 @@ class Preview(Base):
 
     url = ('http://buscatextual.cnpq.br/buscatextual'
            '/preview.do?metodo=apresentar&id=')
-    logger = Base().set_logger()
+    logger = BaseLogger.from_file(Base.base_name, logger_file)
 
     @classmethod
     def date(cls, short_id):

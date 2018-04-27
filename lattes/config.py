@@ -1,30 +1,39 @@
-from logging.config import fileConfig
-from pathlib import Path
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+from logging.handlers import RotatingFileHandler
 import logging
-import os
 
 
 class BaseLogger:
 
-    file_name = 'logging_config.ini'
-    file_path = Path(__file__).parent.absolute()
-    CONFIG_FILE = os.path.join(file_path, file_name)
+    base_name = 'CNPQ.'
+    formatter = logging.Formatter(
+        '%(asctime)s|%(levelname)s|%(processName)s|%(name)s|%(filename)s|'
+        '%(funcName)s - %(message)s', '%Y-%m-%d %H:%M:%S'
+        )
 
-    def __init__(self):
-        self.logger_name = self.__class__.__name__
-        self.logger = self.set_logger()
+    def __init__(self, rotating_file=''):
+        self.name = self.base_name + self.__class__.__name__
+        self.logger = logging.getLogger(self.name)
+        self.logger.setLevel(logging.INFO)
+        self.file_handler(rotating_file)
 
-    def set_logger(self):
-        """Create and returns a logger object configured based on an external
-        file: CONFIG_FILE.
-        """
-        fileConfig(self.CONFIG_FILE)
-        logger = logging.getLogger(self.logger_name)
-        return logger
+    def file_handler(self, file_name):
+        file_handler = RotatingFileHandler(
+            file_name, mode='a', maxBytes=500000, backupCount=5
+            )
+        file_handler.setFormatter(self.formatter)
+        self.logger.addHandler(file_handler)
 
     @classmethod
-    def from_name(cls, name):
-        """Alternative log constructor in order to get a logger not by inheritance."""
-        fileConfig(cls.CONFIG_FILE)
-        logger = logging.getLogger(name)
-        return logger
+    def from_file(cls, logger_name, file_name=None):
+        logger = logging.getLogger(cls.base_name + logger_name)
+        logger.setLevel(logging.INFO)
+        if file_name:
+            file_handler = RotatingFileHandler(file_name, 'a', 500000, 5)
+            file_handler.setFormatter(cls.formatter)
+            return logger
+        else:
+            stream_handler = logging.StreamHandler()
+            stream_handler.setFormatter(cls.formatter)
+            return logger

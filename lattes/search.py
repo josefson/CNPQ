@@ -12,11 +12,7 @@ class Base(BaseLogger):
     url = 'http://buscatextual.cnpq.br/buscatextual/busca.do?'
 
     def __init__(self):
-        super().__init__()
-
-    def write(self, name, response):
-        with open(name, 'w') as out:
-            out.write(response.text)
+        super().__init__(rotating_file='scraper_log.txt')
 
 
 class Search(Base):
