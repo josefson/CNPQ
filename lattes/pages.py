@@ -304,7 +304,7 @@ class Xml(Base):
                     continue
         if self.file_path.exists():
             self.logger.info('{} already downloaded'.format(self.file_name))
-            return False
+            return True
         else:
             self.logger.info('Max tries exceeded: {}'.format(tries))
             return False
