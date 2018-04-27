@@ -26,14 +26,18 @@ class BaseLogger:
         self.logger.addHandler(file_handler)
 
     @classmethod
-    def from_file(cls, logger_name, file_name=None):
-        logger = logging.getLogger(cls.base_name + logger_name)
+    def from_file(cls, logger_name='client', file_name=None):
+        logger = logging.getLogger(logger_name)
         logger.setLevel(logging.INFO)
         if file_name:
-            file_handler = RotatingFileHandler(file_name, 'a', 500000, 5)
+            file_handler = RotatingFileHandler(
+                file_name, mode='a', maxBytes=500000, backupCount=5
+                )
             file_handler.setFormatter(cls.formatter)
+            logger.addHandler(file_handler)
             return logger
         else:
             stream_handler = logging.StreamHandler()
             stream_handler.setFormatter(cls.formatter)
+            logger.addHandler(stream_handler)
             return logger
