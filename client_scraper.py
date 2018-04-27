@@ -1,7 +1,7 @@
 from lattes.search import Search, Scraper
 search = Search()
 total = search.total
-print('Total of registers: {}'.fomat(total))
+print('Total of registers: {}'.format(total))
 # From experience: chunk_size should not be > 10k: ConnectionClosed
 chunk_size = 1000
 short_ids = []  # result list with scraped ids.
