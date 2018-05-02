@@ -6,3 +6,4 @@ xmls/**
 .envrc
 .pytest_cache
 *.egg-info
+*.log
