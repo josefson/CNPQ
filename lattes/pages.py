@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import os
 
-logger_file = 'downloader_log.txt'
+logger_file = 'log_downloader.log'
 
 
 class Base(BaseLogger):
