@@ -13,7 +13,7 @@ logger_file = 'downloader_log.txt'
 class Base(BaseLogger):
 
     max_tries = 50  # constant in order to give up on this curriculum.
-    path = Path(__file__).parent.absolute()
+    path = Path(__file__).parent.parent.absolute()
     domain_url = 'http://buscatextual.cnpq.br/buscatextual'
     get_capthca_url = domain_url + '/servlet/captcha?metodo=getImagemCaptcha'
     solve_captcha_url = domain_url + '/servlet/captcha?informado={}'\
@@ -37,6 +37,19 @@ class Base(BaseLogger):
         self.captcha_file = os.path.join(self.path, captcha)
         self.requests = {}
         self.requests['get_captcha'] = Request('GET', self.get_capthca_url)
+
+    @classmethod
+    def check_param(self, param, pattern):
+        error_msg = 'ParamError: Expected a {} string as param.'
+        try:
+            match = re.match(pattern, param)
+        except TypeError:
+            raise TypeError(error_msg.format(error_msg))
+        else:
+            if match:
+                return param
+            else:
+                raise ValueError(error_msg.format(error_msg))
 
     def read_captcha(self, session):
         """Given a session, gets a captcha and reads it into text.
@@ -124,7 +137,7 @@ class Curriculum(Base):
         """
 
         super().__init__()
-        self.short_id = short_id
+        self.short_id = self.check_param(short_id, '^[0-9A-Z]{10}$')
         self._long_id = None
         self.response = None
         self.source = None
@@ -138,6 +151,10 @@ class Curriculum(Base):
             }
         self.requests['post'] = Request('POST', self.post_url, data=payload)
         self.is_loaded = self.load()
+
+    def __bool__(self):
+        """Truthness of instance. If self.load() was successful"""
+        return bool(self.is_loaded)
 
     def load(self):
         """Through requests.Session: makes a series of requests emulating a
@@ -241,7 +258,7 @@ class Xml(Base):
         @attr: file_path: pathlib.Path() instance
         """
         super().__init__()
-        self.long_id = long_id
+        self.long_id = self.check_param(long_id, '^\d{16}$')
         self.file_name = None
         self.file_path = None
         self.check_path(output_dir)
@@ -252,6 +269,11 @@ class Xml(Base):
             }
         self.requests['post'] = Request('POST', self.url, data=payload)
         self.logger.info('Initializing XmlPage: {}'.format(self.long_id))
+        self.is_downloaded = self.download_xml()
+
+    def __bool__(self):
+        """Truthness of instance, if file was downloaded."""
+        return bool(self.is_downloaded)
 
     def check_path(self, path):
         """Checks if given path exists and is a dir. In which case instantiate
@@ -273,7 +295,7 @@ class Xml(Base):
                     path.as_posix())
                 )
 
-    def get_xml(self):
+    def download_xml(self):
         """Tries to download the xml.zip file associated with long_id
 
         @return:  True or False depending if download was sucessful or not
@@ -335,6 +357,8 @@ class Xml(Base):
 
 
 class Preview(Base):
+    """Represents the vizualization page where one can get the update date
+    without needing captchas."""
 
     url = ('http://buscatextual.cnpq.br/buscatextual'
            '/preview.do?metodo=apresentar&id=')
@@ -347,6 +371,7 @@ class Preview(Base):
         Returns String with the last update or Flase if string date could not
         be retrieved.
         """
+        short_id = cls.check_param(short_id, '^[A-Z0-9]{10}$')
         url = cls.url + short_id
         request = Request('GET', url).prepare()
         response = False
