@@ -48,12 +48,11 @@ or
 $pip install pipenv
 $pipenv install
 ```
+Then we install the library as a python package to the current virtualenv.
+```$pip install -e .```
 
 ## Usage
-First we install the package in the virtualenv:
-```$pip install -e lattes```
-
-Then we can use the library like this:
+Then we can start using the library like this:
 ```
 from lattes.pages import Curriculum, Xml
 short_id = 'K4745447D6'
@@ -61,7 +60,7 @@ curriculum = Curriculum(short_id)
 xml = Xml(curriculum.long_id, '~/xmls/')
 ```
 As this is just a library, it's up the the client application to write the business logic.
-However I'm adding a couple files as example on how to consume the lattes lib.
+However I'm adding a couple files as more sofisticaded examples on how to consume the lattes lib.
 
 ## Thanks
 Special thanks to my friend Bruno Duarte that guided me in the way how images works and to my sponsors.
