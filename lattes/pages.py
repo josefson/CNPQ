@@ -213,7 +213,7 @@ class Curriculum(Base):
             self.logger.info('Bool, not response')
             return False
         else:
-            soup = bs4(response.text, 'lxml')
+            soup = bs4(response.text, 'html.parser')
             if self.title in soup.title.text:
                 self.response = response
                 self.source = response.text
