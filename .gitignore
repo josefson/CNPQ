@@ -1,7 +1,6 @@
 *.png
 *log*.txt
 IDS
-captchas/**
 xmls/**
 .envrc
 .pytest_cache
