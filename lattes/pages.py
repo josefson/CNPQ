@@ -193,9 +193,10 @@ class Curriculum(Base):
                 else:
                     self.logger.info('Error reading code: {}'.format(code))
                     continue
-        self.logger.info('Could not accquire long_id in {} tries'.format(
-                         self.max_tries))
-        return False
+        else:
+            self.logger.info('Could not accquire long_id in {} tries'.format(
+                             self.max_tries))
+            return False
 
     def is_curriculum(self, response):
         """Verify if the response object is from a curriculum page.
@@ -324,12 +325,13 @@ class Xml(Base):
                 else:
                     self.logger.info('Trying again...')
                     continue
-        if self.file_path.exists():
-            self.logger.info('{} already downloaded'.format(self.file_name))
-            return True
         else:
-            self.logger.info('Max tries exceeded: {}'.format(tries))
-            return False
+            if self.file_path.exists():
+                self.logger.info('already downloaded')
+                return True
+            else:
+                self.logger.info('Max tries exceeded: {}'.format(tries))
+                return False
 
     def save_xml(self, response):
         """Given a response object from a request, saves the zip file contained
@@ -396,4 +398,5 @@ class Preview(Base):
                 return date_text
             else:
                 continue
-        return False
+        else:
+            return False

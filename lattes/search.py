@@ -98,6 +98,8 @@ class Scraper(Base):
                     return response
                 else:
                     return False
+        else:
+            return False
 
     @classmethod
     def extract_ids(cls, soup):
