@@ -21,8 +21,15 @@ class Search(Base):
     url = 'http://buscatextual.cnpq.br/buscatextual/busca.do?'
 
     def __init__(self):
-        """Initializes instance, craft search request and sent it away for
-        result."""
+        """Initializes instance, craft search request and send it away for
+        result.
+
+        @attr query: '.' for searching the entire database.
+        @attr search_data: The POST data to be used in the query.
+        @attr session: The requests.Session of the query.
+        @attr ok: The truthness of the instance. If query_resposne.ok is True.
+        """
+
         super().__init__()
         self.query = '.'
         self.search_data = search_data
@@ -40,7 +47,7 @@ class Search(Base):
             self.logger.info('Exception: {}'.format(e))
             raise e
         else:
-            if self.query_resposne:
+            if self.query_resposne.ok:
                 self.ok = True
 
     def __bool__(self):
@@ -62,14 +69,20 @@ class Scraper(Base):
     @classmethod
     def from_registers(cls, search, reg_from, reg_to):
         """Given a search object and a range of resulting registers, load
-        those registers in order to extract the respective short_ids."""
+        those registers in order to extract the respective short_ids.
+        
+        @param search  : A valid search Object to use it's session for
+                         pagination.
+        @param reg_from: Start register number for page to load from.
+        @param reg_to  : Interval number for page to load register up to.
+        """
         cls.logger.info('Loading pagination from register'
                         '{} to {}'.format(reg_from, reg_to))
         session = search.session
         payload = params_payload
         payload['registros'] = '{};{}'.format(reg_from, reg_to)
         response = cls.load_page(session, payload, reg_from, reg_to)
-        if response:
+        if response.ok:
             soup = bs4(response.text, 'html.parser')
             if 'Busca Textual' in soup.title.text:
                 cls.logger.info('Done.')
@@ -84,7 +97,18 @@ class Scraper(Base):
     @classmethod
     def load_page(cls, session, payload, reg_from, reg_to):
         """Tries multiple times to load the page in order to prevent some
-        connection errors."""
+        connection errors.
+        
+        @param session : requests.Session to be used to load the next page.
+        @param payload : Params to be used for the session.get.
+        @param reg_from: Start register number for page to load from.
+        @param reg_to  : Interval number for page to load register up to.
+
+        @return        : Page request response or False depending if the
+                         requests was successful or not.
+        @rtype         : requests.response or False
+        """
+
         response, tries, max_tries = False, 0, 50
         while not response and tries < max_tries:
             tries += 1
@@ -103,7 +127,13 @@ class Scraper(Base):
 
     @classmethod
     def extract_ids(cls, soup):
-        """Given a soup object, extract the short_ids in it."""
+        """Given a soup object, extract and returns the short_ids inside it.
+        @param soup: A ready to be parsed html source code.
+        @type  soup: BeautifulSoup()
+
+        @return: List of short_ids found in soup.
+        @rtype : list of str
+        """
         cls.logger.info('Extracting ids...')
         pattern = '[A-Z0-9]{10}'
         regex = re.compile(pattern)

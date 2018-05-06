@@ -22,22 +22,29 @@ class Base(BaseLogger):
     def __init__(self, user_agent=None):
         """Base initializer for subclasses
 
-        @attr domain:      Domain part of the url to be used for all requests
-        @attr routes:      Dict of url routes the application uses.
-                           The keys are the route_names and the values are the
-                           routes.
-        @attr urls:        Dict of urls to be used. A url consists of a domain
-                           plus a route.
-        @attr captcha:     A filename to be used to save captcha files,
+        @param user_agent: Optional param in order to set requests.Session's
+                           user_agent. If None was give, the default one will
+                           be used, signaling python's requests library.
+        @type  user_agent: str
+
+        @attr  captcha:    A unique filename to be used to save captcha files.
                            This should be unique enough that multiprocesses
                            don't overlap files from different istnances.
+        @type  captcha:    str
+        @attr  requests:   Dictionary of requests.Request objects to be used on
+                           requests.Session sessions.
+                           Example: read_captcha and solve_captcha.
+        @attr  requests:   dict
+        @attr  captcha_file: Fullpath using the captcha attr.
+        @type  captcha_file: str
         """
+
         super().__init__(rotating_file=logger_file)
+        self.user_agent = user_agent
         captcha = 'captcha_{}.png'.format(current_process().name)
         self.captcha_file = os.path.join(self.path, captcha)
         self.requests = {}
         self.requests['get_captcha'] = Request('GET', self.get_capthca_url)
-        self.user_agent = user_agent
 
     @classmethod
     def check_param(self, param, pattern):
@@ -101,7 +108,7 @@ class Base(BaseLogger):
             response = session.send(prepped)
         except Exception as e:
             self.logger.info('Error getting: {}.\n Error: {}'.format(
-                             self.urls['solve_captcha'], e))
+                             self.solve_captcha_url, e))
             return False
         if 'sucesso' in response.text:
             self.logger.info('Capthca authenticated')
@@ -124,17 +131,22 @@ class Curriculum(Base):
     def __init__(self, short_id, user_agent=None):
         """Instance initializer.
 
-        @param short_id: 10 character string that represents a curriculum id
-                         for this webpage
-        @type  short_id: str
+        @param short_id  : 10 character string that represents a curriculum id
+                           for this webpage
+        @type  short_id  : str
 
-        @attr _long_id : Curriculum 16 digits long id given by CNPQ.
-                         Or False if couldnt get the long_id.
-        @attr is_loaded: If page was successfully is_loaded or not: True or
-                         False
-        @attr response : Final http response object.
-        @attr source   : Page source code.
-        @attr soup     : Bs4 soup from page source code
+        @param user_agent: Optional param in order to set requests.Session's
+                           user_agent. If None was give, the default one will
+                           be used, signaling python's requests library.
+        @type  user_agent: str
+
+        @attr _long_id   : Curriculum 16 digits long id given by CNPQ.
+                           Or False if couldnt get the long_id.
+        @attr is_loaded  : If page was successfully is_loaded or not: True or
+                           False
+        @attr response   : Final http response object.
+        @attr source     : Page source code.
+        @attr soup       : Bs4 soup from page source code
         """
 
         super().__init__(user_agent=user_agent)
@@ -204,11 +216,11 @@ class Curriculum(Base):
     def is_curriculum(self, response):
         """Verify if the response object is from a curriculum page.
 
-        @param response: should be either a boolead, when called
-        @type  :  boolean or response from requests
+        @param response: Rhould be either a boolead, when called
+        @type  response: Boolean or response from requests
 
-        @return:  True or False depending if response match curriculum page
-        @rtype :  bool
+        @return: True or False depending if response match curriculum page
+        @rtype:  bool
         """
 
         self.logger.info('Is response a curriculum page?')
@@ -256,6 +268,11 @@ class Xml(Base):
 
         @param output_dir: Full path where to save the related xml file.
         @type  output_dir: str
+
+        @param user_agent: Optional param in order to set requests.Session's
+                           user_agent. If None was give, the default one will
+                           be used, signaling python's requests library.
+        @type  user_agent: str
 
         @attr: files: Dict containing post data to be used on final POST.
         @attr: file_name: str containing absolute path + file name of xml.
@@ -375,9 +392,19 @@ class Preview(Base):
     def date(cls, short_id, user_agent=None):
         """Given a short id, open the Preview page and retrieves the date when
         the curriculum was last updated.
-        Returns String with the last update or Flase if string date could not
-        be retrieved.
+        Returns String with the last updated date or Flase if string date 
+        could not be retrieved.
+
+        @param short_id  : 10 character string that represents a curriculum id
+                           for this webpage
+        @type  short_id  : str
+
+        @param user_agent: Optional param in order to set requests.Session's
+                           user_agent. If None was give, the default one will
+                           be used, signaling python's requests library.
+        @type  user_agent: str
         """
+
         short_id = cls.check_param(short_id, '^[A-Z0-9]{10}$')
         url = cls.url + short_id
         request = Request('GET', url).prepare()

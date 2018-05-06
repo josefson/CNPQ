@@ -1,3 +1,4 @@
+# search_data: The data to be used in a search POST.
 search_data = {
     'metodo': 'buscar',
     'acao': '',
@@ -78,6 +79,7 @@ search_data = {
     'filtros.nomeInstAtividade': '',
 }
 
+# params_payload: The params to be used in a GET pagination.
 params_payload = {
     'metodo': 'forwardPaginaResultados',
     'registros': '1;1000',
