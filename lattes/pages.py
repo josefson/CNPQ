@@ -19,7 +19,7 @@ class Base(BaseLogger):
     solve_captcha_url = domain_url + '/servlet/captcha?informado={}'\
                                      '&metodo=validaCaptcha'
 
-    def __init__(self):
+    def __init__(self, user_agent=None):
         """Base initializer for subclasses
 
         @attr domain:      Domain part of the url to be used for all requests
@@ -37,6 +37,7 @@ class Base(BaseLogger):
         self.captcha_file = os.path.join(self.path, captcha)
         self.requests = {}
         self.requests['get_captcha'] = Request('GET', self.get_capthca_url)
+        self.user_agent = user_agent
 
     @classmethod
     def check_param(self, param, pattern):
@@ -120,7 +121,7 @@ class Curriculum(Base):
     title = 'Currículo do Sistema de Currículos Lattes'
     post_url = Base.domain_url + '/visualizacv.do'
 
-    def __init__(self, short_id):
+    def __init__(self, short_id, user_agent=None):
         """Instance initializer.
 
         @param short_id: 10 character string that represents a curriculum id
@@ -136,7 +137,7 @@ class Curriculum(Base):
         @attr soup     : Bs4 soup from page source code
         """
 
-        super().__init__()
+        super().__init__(user_agent=user_agent)
         self.short_id = self.check_param(short_id, '^[0-9A-Z]{10}$')
         self._long_id = None
         self.response = None
@@ -169,6 +170,8 @@ class Curriculum(Base):
         while not self.is_curriculum(curriculum) or tries < self.max_tries:
             tries += 1
             with Session() as session:
+                if self.user_agent:
+                    session.headers['User-Agent'] = self.user_agent
                 self.logger.info('Starting try n:{} for {}'.format(
                                  tries, self.short_id))
                 code = self.read_captcha(session)
@@ -245,7 +248,7 @@ class Xml(Base):
 
     url = Base.domain_url + '/download.do'
 
-    def __init__(self, long_id, output_dir):
+    def __init__(self, long_id, output_dir, user_agent=None):
         """ Instance initializer.
 
         @param long_id: Curriculum 16 digits long id given by CNPQ.
@@ -258,7 +261,7 @@ class Xml(Base):
         @attr: file_name: str containing absolute path + file name of xml.
         @attr: file_path: pathlib.Path() instance
         """
-        super().__init__()
+        super().__init__(user_agent=user_agent)
         self.long_id = self.check_param(long_id, '^\d{16}$')
         self.file_name = None
         self.file_path = None
@@ -306,6 +309,8 @@ class Xml(Base):
         while not self.file_path.exists() and tries < self.max_tries:
             tries += 1
             with Session() as session:
+                if self.user_agent:
+                    session.headers['User-Agent'] = self.user_agent
                 self.logger.info('Starting Session(): {} try'.format(tries))
                 code = self.read_captcha(session)
                 if code:
@@ -367,7 +372,7 @@ class Preview(Base):
     logger = BaseLogger.from_file(Base.base_name, logger_file)
 
     @classmethod
-    def date(cls, short_id):
+    def date(cls, short_id, user_agent=None):
         """Given a short id, open the Preview page and retrieves the date when
         the curriculum was last updated.
         Returns String with the last update or Flase if string date could not
@@ -384,6 +389,8 @@ class Preview(Base):
             cls.logger.info('Try: {}'.format(tries))
             try:
                 with Session() as session:
+                    if user_agent:
+                        session.headers['User-Agent'] = user_agent
                     response = session.send(request)
             except Exception as e:
                 cls.logger.info('Error: {}'.format(e))
