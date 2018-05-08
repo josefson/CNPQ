@@ -70,7 +70,7 @@ class Scraper(Base):
     def from_registers(cls, search, reg_from, reg_to):
         """Given a search object and a range of resulting registers, load
         those registers in order to extract the respective short_ids.
-        
+
         @param search  : A valid search Object to use it's session for
                          pagination.
         @param reg_from: Start register number for page to load from.
@@ -98,7 +98,7 @@ class Scraper(Base):
     def load_page(cls, session, payload, reg_from, reg_to):
         """Tries multiple times to load the page in order to prevent some
         connection errors.
-        
+
         @param session : requests.Session to be used to load the next page.
         @param payload : Params to be used for the session.get.
         @param reg_from: Start register number for page to load from.
@@ -115,7 +115,7 @@ class Scraper(Base):
             try:
                 response = session.get(cls.url, params=payload)
                 cls.info('Pagination request sent.')
-            except:
+            except Exception:
                 continue
             else:
                 if response.ok:

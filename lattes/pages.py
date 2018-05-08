@@ -392,7 +392,7 @@ class Preview(Base):
     def date(cls, short_id, user_agent=None):
         """Given a short id, open the Preview page and retrieves the date when
         the curriculum was last updated.
-        Returns String with the last updated date or Flase if string date 
+        Returns String with the last updated date or Flase if string date
         could not be retrieved.
 
         @param short_id  : 10 character string that represents a curriculum id
