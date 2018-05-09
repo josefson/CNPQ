@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 from logging.handlers import RotatingFileHandler
 import logging
 

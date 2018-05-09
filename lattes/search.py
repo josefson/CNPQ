@@ -1,9 +1,8 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 from lattes.search_data import search_data, params_payload
 from bs4 import BeautifulSoup as bs4
 from lattes.config import BaseLogger
-import requests
+from requests.exceptions import RequestException
+from requests import Session
 import re
 
 
@@ -27,28 +26,27 @@ class Search(Base):
         @attr query: '.' for searching the entire database.
         @attr search_data: The POST data to be used in the query.
         @attr session: The requests.Session of the query.
-        @attr ok: The truthness of the instance. If query_resposne.ok is True.
+        @attr ok: The truthness of the instance. If response_query.ok is True.
         """
 
         super().__init__()
         self.query = '.'
         self.search_data = search_data
         self.search_data['textoBusca'] = self.query
-        self.session = requests.Session()
+        self.session = Session()
         self.ok = False
         self.logger.info('Searching for "." in {}'.format(self.url))
         try:
-            self.query_resposne = self.session.post(self.url,
+            self.response_query = self.session.post(self.url,
                                                     data=self.search_data)
             self.logger.info(
                 'Search finished with {} results'.format(self.total))
-        except Exception as e:
+        except RequestException as e:
             self.logger.info('Could not query {}'.format(self.url))
             self.logger.info('Exception: {}'.format(e))
             raise e
-        else:
-            if self.query_resposne.ok:
-                self.ok = True
+        if self.response_query.ok:
+            self.ok = True
 
     def __bool__(self):
         """Instance assertion."""
@@ -57,7 +55,7 @@ class Search(Base):
     @property
     def total(self):
         """Total of results of a search session."""
-        soup = bs4(self.query_resposne.text, 'html.parser')
+        soup = bs4(self.response_query.text, 'html.parser')
         total = soup.find(class_='tit_form').b.text
         return int(total)
 
@@ -82,7 +80,7 @@ class Scraper(Base):
         payload = params_payload
         payload['registros'] = '{};{}'.format(reg_from, reg_to)
         response = cls.load_page(session, payload, reg_from, reg_to)
-        if response.ok:
+        if response:
             soup = bs4(response.text, 'html.parser')
             if 'Busca Textual' in soup.title.text:
                 cls.logger.info('Done.')
@@ -95,14 +93,12 @@ class Scraper(Base):
             return False
 
     @classmethod
-    def load_page(cls, session, payload, reg_from, reg_to):
+    def load_page(cls, session, payload):
         """Tries multiple times to load the page in order to prevent some
         connection errors.
 
         @param session : requests.Session to be used to load the next page.
         @param payload : Params to be used for the session.get.
-        @param reg_from: Start register number for page to load from.
-        @param reg_to  : Interval number for page to load register up to.
 
         @return        : Page request response or False depending if the
                          requests was successful or not.
@@ -115,7 +111,7 @@ class Scraper(Base):
             try:
                 response = session.get(cls.url, params=payload)
                 cls.info('Pagination request sent.')
-            except Exception:
+            except RequestException:
                 continue
             else:
                 if response.ok:

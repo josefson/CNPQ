@@ -1,4 +1,5 @@
 from multiprocessing import current_process
+from requests.exceptions import RequestException
 from requests import Session, Request
 from bs4 import BeautifulSoup as bs4
 from lattes.config import BaseLogger
@@ -7,12 +8,14 @@ from pathlib import Path
 import re
 import os
 
+
 logger_file = 'log_downloader.log'
 
 
 class Base(BaseLogger):
 
     max_tries = 50  # constant in order to give up on this curriculum.
+    timeout = (5, 15)
     path = Path(__file__).parent.parent.absolute()
     domain_url = 'http://buscatextual.cnpq.br/buscatextual'
     get_capthca_url = domain_url + '/servlet/captcha?metodo=getImagemCaptcha'
@@ -46,6 +49,12 @@ class Base(BaseLogger):
         self.requests = {}
         self.requests['get_captcha'] = Request('GET', self.get_capthca_url)
 
+    def __del__(self):
+        handlers = self.logger.handlers[:]
+        for handler in handlers:
+            handler.close()
+            self.logger.removeHandler(handler)
+
     @classmethod
     def check_param(self, param, pattern):
         error_msg = 'ParamError: Expected a {} string as param.'
@@ -69,10 +78,11 @@ class Base(BaseLogger):
         @return: True or False, if the captcha was read successifuly or not.
         @rtype : bool
         """
+
         try:
             prepped = session.prepare_request(self.requests['get_captcha'])
-            response = session.send(prepped)
-        except Exception as e:
+            response = session.send(prepped, timeout=self.timeout)
+        except RequestException as e:
             self.logger.info('Error getting: {}.\n Error: {}'.format(
                              self.get_capthca_url, e))
             return False
@@ -101,12 +111,13 @@ class Base(BaseLogger):
                   a authenticated session or not.
         @rtype :  bool
         """
+
         try:
             url = self.solve_captcha_url.format(code)
             self.requests['solve_captcha'] = Request('GET', url)
             prepped = session.prepare_request(self.requests['solve_captcha'])
-            response = session.send(prepped)
-        except Exception as e:
+            response = session.send(prepped, timeout=self.timeout)
+        except RequestException as e:
             self.logger.info('Error getting: {}.\n Error: {}'.format(
                              self.solve_captcha_url, e))
             return False
@@ -164,9 +175,11 @@ class Curriculum(Base):
             }
         self.requests['post'] = Request('POST', self.post_url, data=payload)
         self.is_loaded = self.load()
+        self.__del__()
 
     def __bool__(self):
         """Truthness of instance. If self.load() was successful"""
+
         return bool(self.is_loaded)
 
     def load(self):
@@ -178,6 +191,7 @@ class Curriculum(Base):
                   successfull or False if not
         @rtype :  bool
         """
+
         tries, curriculum = 0, False
         while not self.is_curriculum(curriculum) or tries < self.max_tries:
             tries += 1
@@ -189,11 +203,12 @@ class Curriculum(Base):
                 code = self.read_captcha(session)
                 if code:
                     if self.solve_captcha(session, code):
+                        request = self.requests['post']
+                        prepped = session.prepare_request(request)
                         try:
-                            request = self.requests['post']
-                            prepped = session.prepare_request(request)
-                            curriculum = session.send(prepped)
-                        except Exception as e:
+                            curriculum = session.send(prepped,
+                                                      timeout=self.timeout)
+                        except RequestException as e:
                             self.logger.info(' POST Error: {}'.format(e))
                             continue
                         if self.is_curriculum(curriculum):
@@ -243,6 +258,7 @@ class Curriculum(Base):
     @property
     def long_id(self):
         """Property for returning a long_id"""
+
         regex = re.compile('\d{16}')
         long_id = self.soup.find(href=regex)['href'][-16:]
         self.logger.info('long_id: {} | response: {}'.format(
@@ -278,6 +294,7 @@ class Xml(Base):
         @attr: file_name: str containing absolute path + file name of xml.
         @attr: file_path: pathlib.Path() instance
         """
+
         super().__init__(user_agent=user_agent)
         self.long_id = self.check_param(long_id, '^\d{16}$')
         self.file_name = None
@@ -291,14 +308,17 @@ class Xml(Base):
         self.requests['post'] = Request('POST', self.url, data=payload)
         self.logger.info('Initializing XmlPage: {}'.format(self.long_id))
         self.is_downloaded = self.download_xml()
+        self.__del__()
 
     def __bool__(self):
         """Truthness of instance, if file was downloaded."""
+
         return bool(self.is_downloaded)
 
     def check_path(self, path):
         """Checks if given path exists and is a dir. In which case instantiate
         file_name and file_path attributes."""
+
         path = Path(path)
         if path.exists() and path.is_dir():
             xml_name = '{}.zip'.format(self.long_id)
@@ -322,6 +342,7 @@ class Xml(Base):
         @return:  True or False depending if download was sucessful or not
         @rtype :  bool
         """
+
         tries = 0
         while not self.file_path.exists() and tries < self.max_tries:
             tries += 1
@@ -335,7 +356,13 @@ class Xml(Base):
                         self.logger.info('Downloading xml...')
                         request = self.requests['post']
                         prepped = session.prepare_request(request)
-                        response = session.send(prepped)
+                        try:
+                            response = session.send(prepped,
+                                                    timeout=self.timeout)
+                        except RequestException as e:
+                            self.logger.info('Error: {}'.format(e))
+                            self.logger.info('Trying again...')
+                            continue
                         if self.save_xml(response):
                             return True
                         else:
@@ -363,8 +390,9 @@ class Xml(Base):
                   retreived and saved.
         @rtype :  bool
         """
+
         if response.status_code == 200:
-            self.logger.info('Post sucessful- status_code 200.')
+            self.logger.info('Post sucessful.')
             self.logger.info('Saving file...')
             with open(self.file_name, 'wb') as xml:
                 xml.write(response.content)
@@ -386,7 +414,7 @@ class Preview(Base):
 
     url = ('http://buscatextual.cnpq.br/buscatextual'
            '/preview.do?metodo=apresentar&id=')
-    logger = BaseLogger.from_file(Base.base_name, logger_file)
+    logger = BaseLogger.from_file(Base.base_name + 'Preview', logger_file)
 
     @classmethod
     def date(cls, short_id, user_agent=None):
@@ -407,30 +435,30 @@ class Preview(Base):
 
         short_id = cls.check_param(short_id, '^[A-Z0-9]{10}$')
         url = cls.url + short_id
-        request = Request('GET', url).prepare()
+        request = Request('GET', url)
         response = False
         tries = 0
         cls.logger.info('Getting upDATE for {}'.format(short_id))
         while not response or tries < cls.max_tries:
             tries += 1
             cls.logger.info('Try: {}'.format(tries))
-            try:
-                with Session() as session:
-                    if user_agent:
-                        session.headers['User-Agent'] = user_agent
-                    response = session.send(request)
-            except Exception as e:
-                cls.logger.info('Error: {}'.format(e))
-                continue
-            if response.ok:
+            with Session() as session:
+                if user_agent:
+                    session.headers['User-Agent'] = user_agent
+                try:
+                    prepped = session.prepare_request(request)
+                    response = session.send(prepped, timeout=cls.timeout)
+                except RequestException as e:
+                    cls.logger.info('Error: {}'.format(e))
+                    continue
+            if response.status_code == 200:
                 pattern = '(\d{2}/){2}\d{4}'
                 regex = re.compile(pattern)
                 soup = bs4(response.text, 'html.parser')
                 date_text = soup.span.text
                 date_text = regex.search(date_text).group()
-                cls.logger.info('Response.ok: date: {}'.format(date_text))
+                cls.logger.info('Response 200: date: {}'.format(date_text))
                 return date_text
-            else:
-                continue
         else:
+            cls.logger.info('Could not fetch Preview page.')
             return False

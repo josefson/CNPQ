@@ -44,7 +44,7 @@ def setup():
     return data_i_already_have, scraped_short_ids
 
 
-def main(previous_data, new_data):
+def main(data_i_already_have, new_data):
     """The real benefit of something like this is only investing time on what
     mattes. Since one could have previous data and most curriculums are not
     updated frequently. We can reduce the time spent for one curriculum in 1/3
