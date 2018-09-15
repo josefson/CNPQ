@@ -7,6 +7,7 @@ name = "pypi"
 requests = "*"
 "beautifulsoup4" = "*"
 Pillow = "==5.1.0"
+fake-useragent = "*"
 
 [dev-packages]
 "flake8" = "*"
