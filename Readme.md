@@ -42,14 +42,13 @@ Then run ```$which python``` and check for an output similar to this:
 Only then install the python dependencies either through pip or poetry:
 ```
 $pip install -r requirements.txt
+$pip install -e .
 ```
 or
 ```
 $pip install poetry
 $poetry install
 ```
-Then we install the library as a python package to the current virtualenv.
-```$pip install -e .```
 
 ## Usage
 Then we can start using the library like this:

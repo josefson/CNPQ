@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "captcha negated by python requests"
 authors = ["Josefson Fraga <josefson@users.noreply.github.com>"]
 license = "MIT"
+packages =[
+    { include = "lattes" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.7"
