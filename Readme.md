@@ -39,14 +39,14 @@ Then run ```$which python``` and check for an output similar to this:
 ```
 /Users/josefson/.virtualenvs/cnpq/bin/python
 ```
-Only then install the python dependencies eiher through pip or pipenv:
+Only then install the python dependencies either through pip or poetry:
 ```
 $pip install -r requirements.txt
 ```
 or
 ```
-$pip install pipenv
-$pipenv install
+$pip install poetry
+$poetry install
 ```
 Then we install the library as a python package to the current virtualenv.
 ```$pip install -e .```
