@@ -4,7 +4,7 @@ from lattes.pages import Curriculum, Xml, Preview
 from lattes.config import BaseLogger
 
 logger = BaseLogger.from_file('better_cli', 'better_cli.log')
-ZIP_PATH = '/Users/josefson/Workspace/Python/cnpq/xmls'
+ZIP_PATH = '/home/elodin/Workspace/Python/cnpq/xmls'
 
 
 def setup():

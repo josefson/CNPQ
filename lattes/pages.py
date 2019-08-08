@@ -259,7 +259,7 @@ class Curriculum(Base):
     def long_id(self):
         """Property for returning a long_id"""
 
-        regex = re.compile('\d{16}')
+        regex = re.compile(r'\d{16}')
         long_id = self.soup.find(href=regex)['href'][-16:]
         self.logger.info('long_id: {} | response: {}'.format(
                          long_id, self.response))
@@ -296,7 +296,7 @@ class Xml(Base):
         """
 
         super().__init__(user_agent=user_agent)
-        self.long_id = self.check_param(long_id, '^\d{16}$')
+        self.long_id = self.check_param(long_id, r'^\d{16}$')
         self.file_name = None
         self.file_path = None
         self.check_path(output_dir)
@@ -452,7 +452,7 @@ class Preview(Base):
                     cls.logger.info('Error: {}'.format(e))
                     continue
             if response.status_code == 200:
-                pattern = '(\d{2}/){2}\d{4}'
+                pattern = r'(\d{2}/){2}\d{4}'
                 regex = re.compile(pattern)
                 soup = bs4(response.text, 'html.parser')
                 date_text = soup.span.text

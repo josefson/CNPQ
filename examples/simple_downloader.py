@@ -6,7 +6,7 @@ from lattes.config import BaseLogger
 
 
 logger = BaseLogger.from_file('simple_client', file_name='simple_client.log')
-ZIP_PATH = '/Users/josefson/Workspace/Python/cnpq/xmls'
+ZIP_PATH = '/home/elodin/Workspace/Python/cnpq/xmls'
 
 
 def single_cored_example(short_ids):
