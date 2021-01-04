@@ -193,7 +193,7 @@ class Curriculum(Base):
         """
 
         tries, curriculum = 0, False
-        while not self.is_curriculum(curriculum) or tries < self.max_tries:
+        while not self.is_curriculum(curriculum) and tries < self.max_tries:
             tries += 1
             with Session() as session:
                 if self.user_agent:
