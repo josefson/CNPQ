@@ -12,6 +12,9 @@ Pillow = "^7.1.2"
 fake-useragent = "^0.1.11"
 
 [tool.poetry.dev-dependencies]
+pytest = "^6.2.1"
+jedi = "^0.18.0"
+ipython = "^7.19.0"
 
 [build-system]
 requires = ["poetry>=0.12"]
