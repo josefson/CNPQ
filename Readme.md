@@ -1,3 +1,9 @@
+## ATENTION
+Since july 2021 this project no longer works given CNPQ had his main server fried they reinstalled their services but didn't install/started the old captcha service that has been running underneath the recaptcha one presented on the browsers.
+As this library/script made use of that hidden/forgotten service and as it is no longer running, until i have time to upgrade the captcha part of the script to solve the new captcha it will not work.
+
+It was good while it lasted.
+
 # CNPQ
 Captcha Negated by Python reQuests - For the CNPq lattes database.
 
