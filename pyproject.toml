@@ -8,7 +8,7 @@ authors = ["Josefson Fraga <josefson.br@gmail.com>"]
 python = "^3.8"
 requests = "^2.23.0"
 beautifulsoup4 = "^4.9.1"
-Pillow = "^7.1.2"
+Pillow = "^9.0.0"
 fake-useragent = "^0.1.11"
 
 [tool.poetry.dev-dependencies]
